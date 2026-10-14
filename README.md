@@ -69,14 +69,14 @@ docker compose up --build -d
 ### Bước 2: Truy cập các dịch vụ
 Sau khi các container khởi động hoàn tất (chỉ mất khoảng 1-2 phút lần đầu để build):
 
-| Dịch vụ | Địa chỉ truy cập | Ghi chú |
+| Dịch vụ | Địa chỉ truy cập IP | Ghi chú |
 | :--- | :--- | :--- |
-| **Ứng dụng PhotoVault (Nginx)** | `http://localhost` hoặc `http://localhost:8080` | Cổng chính thống nhất của hệ thống |
-| **Giao diện Frontend (Trực tiếp)**| `http://localhost:3000` | React + Vite UI |
-| **Backend REST API** | `http://localhost:5000/api/health` | Kiểm tra trạng thái API |
-| **Prometheus Raw Metrics** | `http://localhost:5000/metrics` | Chỉ số giám sát thời gian thực |
-| **Prometheus Server UI** | `http://localhost:9090` | Truy vấn PromQL |
-| **Grafana Dashboard** | `http://localhost:3001` | Đăng nhập: `admin` / `admin` |
+| **Ứng dụng PhotoVault (Nginx)** | `http://127.0.0.1:8080` (hoặc LAN: `http://192.168.1.104:8080`) | Cổng Nginx phân phối hệ thống |
+| **Giao diện Frontend (Dev)**| `http://127.0.0.1:3000` (hoặc LAN: `http://192.168.1.104:3000`) | Giao diện React + Vite UI |
+| **Backend REST API** | `http://127.0.0.1:5000/api/health` | Kiểm tra trạng thái API |
+| **Prometheus Raw Metrics** | `http://127.0.0.1:5000/metrics` | Chỉ số giám sát thời gian thực |
+| **Prometheus Server UI** | `http://127.0.0.1:9090` | Truy vấn PromQL |
+| **Grafana Dashboard** | `http://127.0.0.1:3001` | Đăng nhập: `admin` / `admin` |
 
 ---
 

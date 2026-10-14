@@ -459,13 +459,13 @@ export const AdminPage = () => {
                   Thu thập metrics chu kỳ 15s từ Backend Flask (`http_requests_total`, `http_request_duration_seconds`, `gallery_storage_used_bytes`).
                 </p>
                 <a
-                  href="http://localhost:9090"
+                  href="http://127.0.0.1:9090"
                   target="_blank"
                   rel="noreferrer"
                   className="btn btn-outline btn-sm"
                   style={{ marginTop: '12px', width: '100%' }}
                 >
-                  Mở Prometheus UI (localhost:9090) <ExternalLink size={13} />
+                  Mở Prometheus UI (127.0.0.1:9090) <ExternalLink size={13} />
                 </a>
               </div>
 
@@ -478,13 +478,13 @@ export const AdminPage = () => {
                   Hiển thị biểu đồ trực quan hóa lưu lượng HTTP, tốc độ upload ảnh, thời gian phản hồi API và mức tiêu thụ đĩa.
                 </p>
                 <a
-                  href="http://localhost:3001"
+                  href="http://127.0.0.1:3001"
                   target="_blank"
                   rel="noreferrer"
                   className="btn btn-outline btn-sm"
                   style={{ marginTop: '12px', width: '100%' }}
                 >
-                  Mở Grafana Dashboard (localhost:3001) <ExternalLink size={13} />
+                  Mở Grafana Dashboard (127.0.0.1:3001) <ExternalLink size={13} />
                 </a>
               </div>
             </div>
