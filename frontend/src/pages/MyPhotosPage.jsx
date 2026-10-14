@@ -4,11 +4,11 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PhotoCard } from '../components/PhotoCard';
 
-export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload }) => {
+export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all' }) => {
   const { user } = useAuth();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState('all'); // all, public, private, favorite
+  const [filterType, setFilterType] = useState(defaultFilter); // all, public, private, favorite
 
   const fetchMyPhotos = async () => {
     if (!user) return;
