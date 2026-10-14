@@ -1,0 +1,93 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Tổng Số Người Dùng",
+      "type": "stat",
+      "targets": [{ "expr": "gallery_users_total_count", "legendFormat": "Users", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Tổng Số Hình Ảnh Trong DB",
+      "type": "stat",
+      "targets": [{ "expr": "gallery_photos_total_count", "legendFormat": "Photos", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "title": "Dung Lượng Ảnh Lưu Trữ (MB)",
+      "type": "stat",
+      "targets": [{ "expr": "gallery_storage_used_bytes / (1024 * 1024)", "legendFormat": "Storage (MB)", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "yellow", "value": null }] }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "title": "Tổng Lượt Tải Ảnh Lên",
+      "type": "stat",
+      "targets": [{ "expr": "sum(gallery_photo_uploads_total)", "legendFormat": "Uploads", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 5,
+      "title": "Tần Suất Yêu Cầu HTTP (Requests / sec)",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(rate(http_requests_total[1m])) by (method, status_code)", "legendFormat": "{{method}} - {{status_code}}", "refId": "A" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 6,
+      "title": "Thời Gian Phản Hồi API Backend (Latency p95)",
+      "type": "timeseries",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95 Latency", "refId": "A" }]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["gallery", "monitoring", "docker"],
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Photo Gallery System Overview",
+  "version": 1
+}

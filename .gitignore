@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Environment and secrets
+.env
+*.local
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Storage & Backups
+backend/uploads/originals/*
+backend/uploads/thumbnails/*
+!backend/uploads/originals/.gitkeep
+!backend/uploads/thumbnails/.gitkeep
+backup/archives/*
+!backup/archives/.gitkeep
+
+# Logs and DB
+*.log
+gallery.db
+*.sqlite3
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
