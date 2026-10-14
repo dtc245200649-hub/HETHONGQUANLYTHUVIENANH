@@ -99,16 +99,12 @@ export const GalleryPage = ({ onSelectPhoto }) => {
           fontSize: '2.5rem',
           fontWeight: 800,
           lineHeight: 1.15,
-          marginBottom: '1rem',
+          marginBottom: '2rem',
           letterSpacing: '-0.03em'
         }}>
           Khám Phá Thế Giới Qua Từng <br />
           <span className="gradient-text">Khoảnh Khắc Tuyệt Mỹ</span>
         </h1>
-
-        <p style={{ fontSize: '1.05rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
-          Lưu trữ ảnh gốc chất lượng cao, tạo album riêng tư hoặc công khai, giám sát và quản trị hệ thống toàn diện.
-        </p>
 
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} style={{ position: 'relative', width: '100%', maxWidth: '640px', margin: '0 auto' }}>
