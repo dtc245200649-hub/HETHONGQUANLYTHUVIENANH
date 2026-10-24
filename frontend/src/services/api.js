@@ -119,9 +119,16 @@ class ApiService {
     });
   }
 
-  async deletePhoto(id) {
-    return await this.request(`/photos/${id}`, {
+  async deletePhoto(id, permanent = false) {
+    const url = permanent ? `/photos/${id}?permanent=true` : `/photos/${id}`;
+    return await this.request(url, {
       method: 'DELETE'
+    });
+  }
+
+  async restorePhoto(id) {
+    return await this.request(`/photos/${id}/restore`, {
+      method: 'POST'
     });
   }
 
@@ -137,6 +144,13 @@ class ApiService {
 
   getDownloadUrl(id) {
     return `/api/photos/${id}/download`;
+  }
+
+  getAlbumDownloadUrl(albumId) {
+    const token = this.getToken();
+    return token
+      ? `/api/albums/${albumId}/download?token=${token}`
+      : `/api/albums/${albumId}/download`;
   }
 
   // Albums APIs
@@ -200,6 +214,28 @@ class ApiService {
   async getAdminLogs(params = {}) {
     const query = new URLSearchParams(params).toString();
     return await this.request(`/admin/logs?${query}`);
+  }
+
+  // Backup APIs
+  async getBackups() {
+    return await this.request('/admin/backups');
+  }
+
+  async createBackup() {
+    return await this.request('/admin/backups/create', {
+      method: 'POST'
+    });
+  }
+
+  async deleteBackup(filename) {
+    return await this.request(`/admin/backups/${encodeURIComponent(filename)}`, {
+      method: 'DELETE'
+    });
+  }
+
+  getBackupDownloadUrl(filename) {
+    const token = this.getToken();
+    return `/api/admin/backups/download/${encodeURIComponent(filename)}?token=${token}`;
   }
 }
 

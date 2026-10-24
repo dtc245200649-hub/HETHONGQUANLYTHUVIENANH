@@ -8,6 +8,22 @@ def seed_database(app):
         # Create all tables
         db.create_all()
 
+        # Automatic schema column upgrades for existing databases
+        try:
+            with db.engine.connect() as conn:
+                for col_name, col_sql in [
+                    ('is_deleted', 'BOOLEAN DEFAULT FALSE'),
+                    ('deleted_at', 'TIMESTAMP'),
+                    ('exif_data', "JSON DEFAULT '{}'::json")
+                ]:
+                    try:
+                        conn.execute(db.text(f"ALTER TABLE photos ADD COLUMN IF NOT EXISTS {col_name} {col_sql};"))
+                        conn.commit()
+                    except Exception as ce:
+                        pass
+        except Exception as e:
+            pass
+
         # Check if admin exists
         admin = User.query.filter_by(username='admin').first()
         if not admin:

@@ -15,7 +15,11 @@ import {
   RefreshCw,
   ExternalLink,
   DownloadCloud,
-  FileText
+  FileText,
+  Trash2,
+  Download,
+  Archive,
+  Check
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -29,7 +33,9 @@ export const AdminPage = () => {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [backupLoading, setBackupLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
 
   const fetchStats = async () => {
@@ -65,9 +71,51 @@ export const AdminPage = () => {
     }
   };
 
+  const fetchBackups = async () => {
+    try {
+      const res = await api.getBackups();
+      if (res.success && res.backups) {
+        setBackups(res.backups);
+      }
+    } catch (err) {
+      console.error('Failed to load backups:', err);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    setBackupLoading(true);
+    addToast('Đang tiến hành sao lưu Database và tệp Media...', 'info');
+    try {
+      const res = await api.createBackup();
+      if (res.success) {
+        addToast(res.message || 'Tạo bản sao lưu thành công!', 'success');
+        await fetchBackups();
+      } else {
+        addToast(res.message || 'Lỗi khi tạo bản sao lưu', 'error');
+      }
+    } catch (err) {
+      addToast(err.message || 'Không thể tạo bản sao lưu', 'error');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleDeleteBackup = async (filename) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa tệp sao lưu "${filename}"?`)) return;
+    try {
+      const res = await api.deleteBackup(filename);
+      if (res.success) {
+        addToast(`Đã xóa bản sao lưu ${filename}`, 'success');
+        await fetchBackups();
+      }
+    } catch (err) {
+      addToast(err.message || 'Lỗi khi xóa tệp sao lưu', 'error');
+    }
+  };
+
   const refreshAll = async () => {
     setLoading(true);
-    await Promise.all([fetchStats(), fetchUsers(), fetchLogs()]);
+    await Promise.all([fetchStats(), fetchUsers(), fetchLogs(), fetchBackups()]);
     setLoading(false);
   };
 
@@ -520,51 +568,143 @@ export const AdminPage = () => {
       {/* TAB 4: Backup & Restore */}
       {activeTab === 'backup' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Action Bar */}
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.25rem' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Database size={22} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Database size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Quản Trị Cơ Sở Dữ Liệu & Sao Lưu</h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Sao lưu trọn gói CSDL PostgreSQL và thư mục ảnh Docker volume</p>
+                </div>
               </div>
-              <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Quản Trị Cơ Sở Dữ Liệu & Sao Lưu (PostgreSQL + Media)</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Cơ chế bảo toàn dữ liệu gồm cả bản ghi CSDL và thư mục file ảnh</p>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={fetchBackups}
+                  className="btn btn-secondary btn-sm"
+                  title="Làm mới danh sách"
+                >
+                  <RefreshCw size={15} />
+                  <span>Làm mới</span>
+                </button>
+
+                <button
+                  onClick={handleCreateBackup}
+                  disabled={backupLoading}
+                  className="btn btn-primary btn-sm"
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none' }}
+                >
+                  {backupLoading ? <RefreshCw size={15} className="spin" /> : <DownloadCloud size={15} />}
+                  <span>{backupLoading ? 'Đang sao lưu...' : 'Tạo Sao Lưu Ngay (1 Chạm)'}</span>
+                </button>
               </div>
             </div>
 
+            {/* Backups Table */}
+            <div style={{ marginTop: '1rem' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Archive size={16} color="var(--accent-emerald)" />
+                <span>Danh Sách Bản Sao Lưu Hệ Thống ({backups.length} tệp)</span>
+              </h4>
+
+              {backups.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2.5rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                  <Archive size={36} color="var(--text-dim)" style={{ margin: '0 auto 10px auto' }} />
+                  <p style={{ color: 'var(--text-muted)' }}>Chưa có bản sao lưu nào. Hãy bấm <b>"Tạo Sao Lưu Ngay"</b> ở trên!</p>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="admin-table" style={{ width: '100%', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Tên Tệp Sao Lưu</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Loại</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Dung Lượng</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px' }}>Thời Gian Tạo</th>
+                        <th style={{ textAlign: 'right', padding: '10px 12px' }}>Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backups.map((b) => (
+                        <tr key={b.filename} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td style={{ padding: '12px', fontFamily: 'monospace', fontWeight: 600 }}>
+                            {b.filename}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            {b.type === 'database' ? (
+                              <span className="badge badge-admin" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>
+                                PostgreSQL DB
+                              </span>
+                            ) : (
+                              <span className="badge badge-user" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
+                                Thư Mục Media
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px', color: 'var(--text-dim)' }}>
+                            {b.size_mb > 0 ? `${b.size_mb} MB` : `${Math.round(b.size_bytes / 1024)} KB`}
+                          </td>
+                          <td style={{ padding: '12px', color: 'var(--text-dim)' }}>
+                            {new Date(b.created_at).toLocaleString('vi-VN')}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '8px' }}>
+                              <a
+                                href={api.getBackupDownloadUrl(b.filename)}
+                                download
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                                title="Tải về máy tính"
+                              >
+                                <Download size={13} />
+                                <span>Tải về</span>
+                              </a>
+                              <button
+                                onClick={() => handleDeleteBackup(b.filename)}
+                                className="btn btn-sm"
+                                style={{ padding: '5px 8px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'none' }}
+                                title="Xóa bản sao lưu này"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* CLI Instructions Panel */}
+          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Terminal size={16} color="var(--primary)" />
+              <span>Kịch Bản Dòng Lệnh Phục Hồi Dữ Liệu (Restore) Khi Gặp Sự Cố:</span>
+            </h4>
             <div style={{
               background: 'var(--bg-primary)',
               borderRadius: 'var(--radius-md)',
               padding: '1.25rem',
               border: '1px solid var(--border-subtle)',
               fontFamily: 'monospace',
-              fontSize: '0.85rem',
-              lineHeight: 1.6
+              fontSize: '0.82rem',
+              lineHeight: 1.7
             }}>
-              <div style={{ color: 'var(--text-dim)', marginBottom: '8px' }}># 1. Chạy kịch bản sao lưu tự động (Backup Script):</div>
+              <div style={{ color: 'var(--text-dim)' }}># Trên Windows (Powershell / CMD):</div>
               <div style={{ color: 'var(--accent-emerald)' }}>
-                docker compose exec postgres pg_dump -U gallery_user gallery_db &gt; backup/db_backup_$(date +%Y%m%d).sql
-              </div>
-              <div style={{ color: 'var(--accent-cyan)', marginTop: '4px' }}>
-                tar -czvf backup/media_backup_$(date +%Y%m%d).tar.gz backend/uploads/
+                .\backup\restore.bat backup\archives\db_backup_xxxx.sql backup\archives\media_backup_xxxx.zip
               </div>
 
-              <div style={{ color: 'var(--text-dim)', marginTop: '16px', marginBottom: '8px' }}># 2. Phục hồi dữ liệu (Restore Script):</div>
-              <div style={{ color: 'var(--accent-amber)' }}>
-                docker compose exec -T postgres psql -U gallery_user gallery_db &lt; backup/db_backup_latest.sql
+              <div style={{ color: 'var(--text-dim)', marginTop: '12px' }}># Trên Linux / macOS:</div>
+              <div style={{ color: 'var(--accent-cyan)' }}>
+                ./backup/restore.sh backup/archives/db_backup_xxxx.sql.gz backup/archives/media_backup_xxxx.tar.gz
               </div>
-              <div style={{ color: 'var(--accent-cyan)', marginTop: '4px' }}>
-                tar -xzvf backup/media_backup_latest.tar.gz -C backend/
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '1.5rem' }}>
-              <button
-                onClick={() => addToast('Đã lưu kịch bản backup tự động trong thư mục /backup/backup.sh và backup.bat!', 'info')}
-                className="btn btn-primary"
-              >
-                <DownloadCloud size={16} />
-                <span>Xem Hướng Dẫn Tự Động Hóa Cronjob</span>
-              </button>
             </div>
           </div>
         </div>

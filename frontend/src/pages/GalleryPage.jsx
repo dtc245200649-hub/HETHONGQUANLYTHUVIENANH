@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { SlidersHorizontal, Heart, RefreshCw, ChevronLeft, ChevronRight, Image as ImageIcon, Flame } from 'lucide-react';
+import { SlidersHorizontal, Heart, RefreshCw, ChevronLeft, ChevronRight, Image as ImageIcon, Flame, Folder } from 'lucide-react';
 import { PhotoCard } from '../components/PhotoCard';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-export const GalleryPage = ({ onSelectPhoto, searchQuery = '' }) => {
+export const GalleryPage = ({ onSelectPhoto, searchQuery = '', refreshTrigger }) => {
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -59,7 +59,7 @@ export const GalleryPage = ({ onSelectPhoto, searchQuery = '' }) => {
 
   useEffect(() => {
     fetchPhotos();
-  }, [page, activeTag, sortBy, favoritesOnly, searchQuery]);
+  }, [page, activeTag, sortBy, favoritesOnly, searchQuery, refreshTrigger]);
 
   return (
     <div>
@@ -76,8 +76,10 @@ export const GalleryPage = ({ onSelectPhoto, searchQuery = '' }) => {
             key={tag.id}
             onClick={() => { setActiveTag(activeTag === tag.name ? '' : tag.name); setPage(1); }}
             className={`category-chip ${activeTag === tag.name ? 'active' : ''}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
           >
-            #{tag.name}
+            {tag.is_album ? <Folder size={13} style={{ opacity: 0.85 }} /> : <span style={{ opacity: 0.6 }}>#</span>}
+            <span>{tag.name}</span>
           </button>
         ))}
       </div>
@@ -95,7 +97,7 @@ export const GalleryPage = ({ onSelectPhoto, searchQuery = '' }) => {
       }}>
         <div>
           <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff' }}>
-            {activeTag ? `Thẻ: #${activeTag}` : searchQuery ? `Kết quả: "${searchQuery}"` : 'Tất cả hình ảnh'}
+            {activeTag ? `Chủ đề / Album: ${activeTag}` : searchQuery ? `Kết quả: "${searchQuery}"` : 'Tất cả hình ảnh'}
           </h2>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px' }}>
             Hiển thị {photos.length} trên tổng số {totalPhotos} ảnh
@@ -210,7 +212,8 @@ export const GalleryPage = ({ onSelectPhoto, searchQuery = '' }) => {
             <PhotoCard
               key={photo.id}
               photo={photo}
-              onClick={() => onSelectPhoto(photo.id)}
+              sortBy={sortBy}
+              onClick={() => onSelectPhoto(photo.id, photos)}
             />
           ))}
         </div>

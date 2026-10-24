@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Heart, Trash2, Edit3, Calendar, HardDrive, Maximize2, Tag, Folder, Eye, Check, Lock, Globe } from 'lucide-react';
+import { 
+  X, Download, Heart, Trash2, Edit3, Calendar, HardDrive, 
+  Maximize2, Tag, Folder, Eye, Check, Lock, Globe, 
+  ChevronLeft, ChevronRight, RotateCcw, Camera, Aperture 
+} from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted }) => {
+export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted, onPrev, onNext }) => {
   const { user, isAdmin } = useAuth();
   const { addToast } = useToast();
   const [photo, setPhoto] = useState(null);
@@ -14,8 +18,16 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
   const [editDescription, setEditDescription] = useState('');
   const [editIsPublic, setEditIsPublic] = useState(true);
   const [editTags, setEditTags] = useState('');
+  const [editAlbumId, setEditAlbumId] = useState('auto');
+  const [albums, setAlbums] = useState([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    api.getAlbums().then(res => {
+      if (res.success) setAlbums(res.albums || []);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!photoId) return;
@@ -29,6 +41,7 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
           setEditDescription(res.photo.description || '');
           setEditIsPublic(res.photo.is_public);
           setEditTags((res.photo.tags || []).join(', '));
+          setEditAlbumId(res.photo.album_id ? String(res.photo.album_id) : 'auto');
         }
       } catch (err) {
         addToast(err.message || 'Không thể tải chi tiết ảnh', 'error');
@@ -39,6 +52,22 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
     };
     fetchPhoto();
   }, [photoId]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft' && onPrev) {
+        onPrev();
+      } else if (e.key === 'ArrowRight' && onNext) {
+        onNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onPrev, onNext, onClose]);
 
   if (!photoId) return null;
 
@@ -59,12 +88,13 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
         title: editTitle,
         description: editDescription,
         is_public: editIsPublic,
+        album_id: editAlbumId,
         tags: editTags.split(',').map((t) => t.trim()).filter(Boolean)
       });
       if (res.success) {
         setPhoto(res.photo);
         setIsEditing(false);
-        addToast('Đã cập nhật thông tin ảnh thành công', 'success');
+        addToast(res.message || 'Đã cập nhật thông tin ảnh thành công', 'success');
         if (onPhotoUpdated) onPhotoUpdated(res.photo);
       }
     } catch (err) {
@@ -74,13 +104,17 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn hình ảnh này khỏi thư viện?')) return;
+  const handleDelete = async (permanent = false) => {
+    const confirmMsg = permanent 
+      ? 'Bạn có chắc chắn muốn xóa vĩnh viễn hình ảnh này khỏi thư viện? Hành động này không thể hoàn tác!'
+      : 'Chuyển ảnh này vào thùng rác? Bạn có thể khôi phục lại bất kỳ lúc nào.';
+    if (!window.confirm(confirmMsg)) return;
+
     setDeleting(true);
     try {
-      const res = await api.deletePhoto(photo.id);
+      const res = await api.deletePhoto(photo.id, permanent);
       if (res.success) {
-        addToast('Đã xóa ảnh thành công', 'success');
+        addToast(res.message || 'Đã xóa ảnh thành công', 'success');
         if (onPhotoDeleted) onPhotoDeleted(photo.id);
         onClose();
       }
@@ -88,6 +122,19 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
       addToast(err.message || 'Không thể xóa ảnh', 'error');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      const res = await api.restorePhoto(photo.id);
+      if (res.success) {
+        addToast('Đã khôi phục ảnh thành công!', 'success');
+        if (onPhotoUpdated) onPhotoUpdated(res.photo);
+        onClose();
+      }
+    } catch (err) {
+      addToast(err.message || 'Lỗi khi khôi phục ảnh', 'error');
     }
   };
 
@@ -159,6 +206,63 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
             />
           )}
 
+          {/* Floating Navigation Controls */}
+          {onPrev && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPrev(); }}
+              title="Ảnh trước (Phím Mũi Tên Trái)"
+              style={{
+                position: 'absolute',
+                left: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: 'rgba(15, 23, 42, 0.8)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 10,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+              }}
+            >
+              <ChevronLeft size={24} />
+            </button>
+          )}
+
+          {onNext && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onNext(); }}
+              title="Ảnh tiếp theo (Phím Mũi Tên Phải)"
+              style={{
+                position: 'absolute',
+                right: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: 'rgba(15, 23, 42, 0.8)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 10,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+              }}
+            >
+              <ChevronRight size={24} />
+            </button>
+          )}
+
           {/* Quick close button on photo on mobile */}
           <button
             onClick={onClose}
@@ -176,7 +280,8 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              zIndex: 10
             }}
           >
             <X size={20} />
@@ -315,6 +420,82 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
                   </div>
                 </div>
 
+                {/* Camera & EXIF Specifications */}
+                {photo?.exif_data && Object.keys(photo.exif_data).length > 0 && (
+                  <div style={{ marginTop: '1.25rem' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', letterSpacing: '0.05em', marginBottom: '10px' }}>
+                      Thông Số Máy Ảnh (EXIF)
+                    </div>
+                    <div style={{
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.2)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      fontSize: '0.82rem'
+                    }}>
+                      {photo.exif_data.camera && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Camera size={14} color="var(--primary)" /> Thiết bị
+                          </span>
+                          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{photo.exif_data.camera}</span>
+                        </div>
+                      )}
+                      {photo.exif_data.lens && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Ống kính</span>
+                          <span style={{ fontWeight: 500, fontSize: '0.78rem' }}>{photo.exif_data.lens}</span>
+                        </div>
+                      )}
+                      {(photo.exif_data.aperture || photo.exif_data.shutter_speed || photo.exif_data.iso || photo.exif_data.focal_length) && (
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: '6px',
+                          marginTop: '6px',
+                          paddingTop: '8px',
+                          borderTop: '1px solid rgba(255,255,255,0.06)',
+                          textAlign: 'center'
+                        }}>
+                          {photo.exif_data.focal_length && (
+                            <div style={{ background: 'var(--bg-secondary)', padding: '6px 4px', borderRadius: '4px' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Tiêu cự</div>
+                              <div style={{ fontWeight: 700 }}>{photo.exif_data.focal_length}</div>
+                            </div>
+                          )}
+                          {photo.exif_data.aperture && (
+                            <div style={{ background: 'var(--bg-secondary)', padding: '6px 4px', borderRadius: '4px' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Khẩu độ</div>
+                              <div style={{ fontWeight: 700 }}>{photo.exif_data.aperture}</div>
+                            </div>
+                          )}
+                          {photo.exif_data.shutter_speed && (
+                            <div style={{ background: 'var(--bg-secondary)', padding: '6px 4px', borderRadius: '4px' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Tốc độ</div>
+                              <div style={{ fontWeight: 700 }}>{photo.exif_data.shutter_speed}</div>
+                            </div>
+                          )}
+                          {photo.exif_data.iso && (
+                            <div style={{ background: 'var(--bg-secondary)', padding: '6px 4px', borderRadius: '4px' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>ISO</div>
+                              <div style={{ fontWeight: 700 }}>{photo.exif_data.iso.replace('ISO ', '')}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {photo.exif_data.date_taken && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                          <span>Ngày chụp gốc:</span>
+                          <span>{photo.exif_data.date_taken}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Album info */}
                 {photo?.album_name && (
                   <div style={{ marginTop: '1.25rem' }}>
@@ -369,22 +550,48 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
                 {/* Owner Actions */}
                 {isOwner && (
                   <div style={{ marginTop: '2rem', display: 'flex', gap: '10px' }}>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, padding: '0.6rem' }}
-                    >
-                      <Edit3 size={16} />
-                      <span>Chỉnh Sửa</span>
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className="btn btn-danger"
-                      style={{ padding: '0.6rem 1rem' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {photo?.is_deleted ? (
+                      <>
+                        <button
+                          onClick={handleRestore}
+                          className="btn btn-primary"
+                          style={{ flex: 1, background: '#10b981', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          <RotateCcw size={16} />
+                          <span>Khôi Phục Ảnh</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(true)}
+                          disabled={deleting}
+                          className="btn btn-danger"
+                          title="Xóa vĩnh viễn khỏi hệ thống"
+                          style={{ padding: '0.6rem 1rem' }}
+                        >
+                          <Trash2 size={16} />
+                          <span>Xóa Vĩnh Viễn</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="btn btn-secondary"
+                          style={{ flex: 1, padding: '0.6rem' }}
+                        >
+                          <Edit3 size={16} />
+                          <span>Chỉnh Sửa</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(false)}
+                          disabled={deleting}
+                          className="btn btn-danger"
+                          style={{ padding: '0.6rem 1rem' }}
+                          title="Chuyển vào thùng rác"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </>
@@ -414,14 +621,38 @@ export const PhotoModal = ({ photoId, onClose, onPhotoUpdated, onPhotoDeleted })
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Thẻ (phân cách bằng dấu phẩy)</label>
+                  <label className="form-label">Thẻ gắn kết (Tags)</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="ví dụ: Thiên nhiên, Hoàng hôn"
+                    placeholder="Phân cách bằng dấu phẩy, ví dụ: Thiên nhiên, Hoàng hôn"
                     value={editTags}
                     onChange={(e) => setEditTags(e.target.value)}
                   />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Bộ Sưu Tập (Album)
+                    <span style={{ fontSize: '0.72rem', color: '#10b981', marginLeft: '6px', fontWeight: 600 }}>
+                      ✨ Tự động theo Thẻ
+                    </span>
+                  </label>
+                  <select
+                    className="form-select"
+                    value={editAlbumId}
+                    onChange={(e) => setEditAlbumId(e.target.value)}
+                    style={editAlbumId === 'auto' ? { borderColor: '#10b981', background: 'rgba(16, 185, 129, 0.05)' } : {}}
+                  >
+                    <option value="auto">✨ [Tự động] Nhận diện theo thẻ tag & từ khóa</option>
+                    <option value="">Không gán Album</option>
+                    {albums.map((alb) => (
+                      <option key={alb.id} value={String(alb.id)}>{alb.name}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                    Nhập thẻ (ví dụ: Anime, Thiên nhiên, ...) hệ thống sẽ tự động chuyển vào album trùng khớp.
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>

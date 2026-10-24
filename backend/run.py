@@ -23,10 +23,14 @@ def wait_for_db(max_retries=10, delay=2):
         return False
 
 if __name__ == '__main__':
-    wait_for_db()
-    seed_database(app)
+    db_ready = wait_for_db()
+    if db_ready:
+        seed_database(app)
+    else:
+        print("WARNING: Could not connect to database. Seeding skipped. If running locally without PostgreSQL, set USE_SQLITE=true in .env")
     
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
     print(f"Server starting on http://0.0.0.0:{port}...")
     app.run(host='0.0.0.0', port=port, debug=debug)
+

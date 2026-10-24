@@ -4,22 +4,26 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PhotoCard } from '../components/PhotoCard';
 
-export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all' }) => {
+export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all', refreshTrigger }) => {
   const { user } = useAuth();
   const [photos, setPhotos] = useState([]);
+  const [trashPhotos, setTrashPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState(defaultFilter); // all, public, private, favorite
+  const [filterType, setFilterType] = useState(defaultFilter); // all, public, private, favorite, trash
 
   const fetchMyPhotos = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await api.getPhotos({
-        user_id: user.id,
-        per_page: 50
-      });
-      if (res.success) {
-        setPhotos(res.photos || []);
+      const [resPhotos, resTrash] = await Promise.all([
+        api.getPhotos({ user_id: user.id, per_page: 50 }),
+        api.getPhotos({ user_id: user.id, trash: true, per_page: 50 })
+      ]);
+      if (resPhotos.success) {
+        setPhotos(resPhotos.photos || []);
+      }
+      if (resTrash.success) {
+        setTrashPhotos(resTrash.photos || []);
       }
     } catch (err) {
       console.error('Failed to load my photos', err);
@@ -30,12 +34,12 @@ export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all
 
   useEffect(() => {
     fetchMyPhotos();
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   const totalViews = photos.reduce((acc, p) => acc + (p.views_count || 0), 0);
   const totalDownloads = photos.reduce((acc, p) => acc + (p.downloads_count || 0), 0);
 
-  const filteredPhotos = photos.filter((p) => {
+  const filteredPhotos = filterType === 'trash' ? trashPhotos : photos.filter((p) => {
     if (filterType === 'public') return p.is_public;
     if (filterType === 'private') return !p.is_public;
     if (filterType === 'favorite') return p.is_favorite;
@@ -118,12 +122,13 @@ export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all
       </div>
 
       {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {[
           { id: 'all', label: `Tất cả (${photos.length})` },
           { id: 'public', label: `Công khai (${photos.filter(p => p.is_public).length})` },
           { id: 'private', label: `Riêng tư (${photos.filter(p => !p.is_public).length})` },
           { id: 'favorite', label: `Yêu thích (${photos.filter(p => p.is_favorite).length})` },
+          { id: 'trash', label: `🗑️ Thùng rác (${trashPhotos.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -131,9 +136,15 @@ export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all
             style={{
               padding: '0.5rem 1rem',
               borderRadius: 'var(--radius-md)',
-              background: filterType === tab.id ? 'var(--primary-light)' : 'var(--bg-secondary)',
-              color: filterType === tab.id ? 'var(--primary)' : 'var(--text-muted)',
-              border: filterType === tab.id ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--border-subtle)',
+              background: filterType === tab.id 
+                ? (tab.id === 'trash' ? 'rgba(239, 68, 68, 0.15)' : 'var(--primary-light)') 
+                : 'var(--bg-secondary)',
+              color: filterType === tab.id 
+                ? (tab.id === 'trash' ? '#f87171' : 'var(--primary)') 
+                : 'var(--text-muted)',
+              border: filterType === tab.id 
+                ? (tab.id === 'trash' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(99, 102, 241, 0.4)') 
+                : '1px solid var(--border-subtle)',
               fontSize: '0.85rem',
               fontWeight: 600,
               cursor: 'pointer'
@@ -152,9 +163,11 @@ export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all
       ) : filteredPhotos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)' }}>
           <Camera size={36} color="var(--text-dim)" style={{ margin: '0 auto 10px auto' }} />
-          <h4>Chưa có hình ảnh nào trong mục này</h4>
+          <h4>{filterType === 'trash' ? 'Thùng rác trống' : 'Chưa có hình ảnh nào trong mục này'}</h4>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Nhấn "Tải Ảnh Mới Lên" để lưu giữ khoảnh khắc đầu tiên của bạn.
+            {filterType === 'trash' 
+              ? 'Các ảnh đã xóa sẽ tạm thời lưu ở đây trước khi bạn xóa vĩnh viễn.' 
+              : 'Nhấn "Tải Ảnh Mới Lên" để lưu giữ khoảnh khắc đầu tiên của bạn.'}
           </p>
         </div>
       ) : (
@@ -167,7 +180,7 @@ export const MyPhotosPage = ({ onSelectPhoto, onOpenUpload, defaultFilter = 'all
             <PhotoCard
               key={photo.id}
               photo={photo}
-              onClick={() => onSelectPhoto(photo.id)}
+              onClick={() => onSelectPhoto(photo.id, filteredPhotos)}
             />
           ))}
         </div>

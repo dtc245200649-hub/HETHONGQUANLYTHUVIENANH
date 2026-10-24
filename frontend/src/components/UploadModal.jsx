@@ -12,7 +12,7 @@ export const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
-  const [albumId, setAlbumId] = useState('');
+  const [albumId, setAlbumId] = useState('auto');
   const [isPublic, setIsPublic] = useState(true);
   const [albums, setAlbums] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -26,7 +26,7 @@ export const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
       setTitle('');
       setDescription('');
       setTags('');
-      setAlbumId('');
+      setAlbumId('auto');
       setProgress(0);
       return;
     }
@@ -294,17 +294,27 @@ export const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="form-group">
-                <label className="form-label">Bộ Sưu Tập (Album)</label>
+                <label className="form-label">
+                  Bộ Sưu Tập (Album)
+                  <span style={{ fontSize: '0.72rem', color: '#10b981', marginLeft: '6px', fontWeight: 600 }}>
+                    ✨ AI Tự động
+                  </span>
+                </label>
                 <select
                   className="form-select"
                   value={albumId}
                   onChange={(e) => setAlbumId(e.target.value)}
+                  style={albumId === 'auto' ? { borderColor: '#10b981', background: 'rgba(16, 185, 129, 0.05)' } : {}}
                 >
+                  <option value="auto">✨ [Tự động] Phân loại theo thông tin ảnh</option>
                   <option value="">Không gán Album</option>
                   {albums.map((alb) => (
                     <option key={alb.id} value={alb.id}>{alb.name}</option>
                   ))}
                 </select>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px', lineHeight: 1.3 }}>
+                  Tự động nhận diện chủ đề, từ khóa, tên tệp và EXIF để đưa vào album phù hợp nhất.
+                </div>
               </div>
 
               <div className="form-group">
@@ -312,7 +322,7 @@ export const UploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Thiên nhiên, Du lịch, ..."
+                  placeholder="Phân cách bằng dấu phẩy, ví dụ: Thiên nhiên, Du lịch..."
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                 />

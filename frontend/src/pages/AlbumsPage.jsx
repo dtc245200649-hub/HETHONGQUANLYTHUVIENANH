@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FolderPlus, Folder, Image as ImageIcon, Plus, X, Lock, Globe } from 'lucide-react';
+import { FolderPlus, Folder, Image as ImageIcon, Plus, X, Lock, Globe, Download, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { PhotoCard } from '../components/PhotoCard';
 
-export const AlbumsPage = ({ onSelectPhoto }) => {
+export const AlbumsPage = ({ onSelectPhoto, refreshTrigger }) => {
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -38,7 +38,7 @@ export const AlbumsPage = ({ onSelectPhoto }) => {
 
   useEffect(() => {
     fetchAlbums();
-  }, []);
+  }, [refreshTrigger]);
 
   const openAlbum = async (album) => {
     setSelectedAlbum(album);
@@ -82,6 +82,24 @@ export const AlbumsPage = ({ onSelectPhoto }) => {
     }
   };
 
+  const handleDeleteAlbum = async (albumId, albumName) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa bộ sưu tập "${albumName}"?\n(Các hình ảnh trong album sẽ không bị xóa mà chỉ được gỡ liên kết khỏi album này)`)) {
+      return;
+    }
+    try {
+      const res = await api.deleteAlbum(albumId);
+      if (res.success) {
+        addToast(`Đã xóa bộ sưu tập "${albumName}" thành công!`, 'success');
+        if (selectedAlbum && selectedAlbum.id === albumId) {
+          setSelectedAlbum(null);
+        }
+        await fetchAlbums();
+      }
+    } catch (err) {
+      addToast(err.message || 'Lỗi khi xóa bộ sưu tập', 'error');
+    }
+  };
+
   return (
     <div>
       {/* Header bar */}
@@ -104,11 +122,36 @@ export const AlbumsPage = ({ onSelectPhoto }) => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {selectedAlbum ? (
-            <button onClick={() => setSelectedAlbum(null)} className="btn btn-secondary">
-              ← Quay lại danh sách Albums
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {albumPhotos.length > 0 && (
+                <a
+                  href={api.getAlbumDownloadUrl(selectedAlbum.id)}
+                  download
+                  className="btn btn-primary"
+                  title="Tải toàn bộ hình ảnh trong album dưới dạng tệp nén .ZIP"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={16} />
+                  <span>Tải trọn bộ Album (.zip)</span>
+                </a>
+              )}
+              {user && (user.id === selectedAlbum.user_id || user.role === 'admin') && (
+                <button
+                  onClick={() => handleDeleteAlbum(selectedAlbum.id, selectedAlbum.name)}
+                  className="btn btn-danger"
+                  title="Xóa bộ sưu tập này"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Trash2 size={16} />
+                  <span>Xóa Album</span>
+                </button>
+              )}
+              <button onClick={() => setSelectedAlbum(null)} className="btn btn-secondary">
+                ← Quay lại danh sách Albums
+              </button>
+            </div>
           ) : user ? (
             <button onClick={() => setCreateModalOpen(true)} className="btn btn-primary">
               <FolderPlus size={18} />
@@ -149,7 +192,7 @@ export const AlbumsPage = ({ onSelectPhoto }) => {
                 <PhotoCard
                   key={photo.id}
                   photo={photo}
-                  onClick={() => onSelectPhoto(photo.id)}
+                  onClick={() => onSelectPhoto(photo.id, albumPhotos)}
                 />
               ))}
             </div>
@@ -269,7 +312,30 @@ export const AlbumsPage = ({ onSelectPhoto }) => {
                   color: 'var(--text-dim)'
                 }}>
                   <span>Tạo bởi: {album.author_name}</span>
-                  <span>{new Date(album.created_at).toLocaleDateString('vi-VN')}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{new Date(album.created_at).toLocaleDateString('vi-VN')}</span>
+                    {user && (user.id === album.user_id || user.role === 'admin') && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteAlbum(album.id, album.name);
+                        }}
+                        title="Xóa bộ sưu tập này"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: '#f87171',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '4px 6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

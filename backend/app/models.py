@@ -64,6 +64,9 @@ class Photo(db.Model):
     mime_type = db.Column(db.String(50), default='image/jpeg')
     is_public = db.Column(db.Boolean, default=True, index=True)
     is_favorite = db.Column(db.Boolean, default=False)
+    is_deleted = db.Column(db.Boolean, default=False, index=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    exif_data = db.Column(db.JSON, default=dict)
     views_count = db.Column(db.Integer, default=0)
     downloads_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
@@ -88,6 +91,9 @@ class Photo(db.Model):
             'mime_type': self.mime_type,
             'is_public': self.is_public,
             'is_favorite': self.is_favorite,
+            'is_deleted': bool(self.is_deleted),
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'exif_data': self.exif_data or {},
             'views_count': self.views_count,
             'downloads_count': self.downloads_count,
             'user_id': self.user_id,

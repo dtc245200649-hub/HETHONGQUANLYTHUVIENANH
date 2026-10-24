@@ -22,19 +22,23 @@ def decode_token(token):
         return {'error': 'Token đã hết hạn, vui lòng đăng nhập lại'}
     except jwt.InvalidTokenError:
         return {'error': 'Token không hợp lệ'}
+    except Exception as e:
+        return {'error': 'Token không hợp lệ hoặc bị lỗi'}
 
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
-        if not auth_header:
+        token = None
+        if auth_header:
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0].lower() == 'bearer':
+                token = parts[1]
+        elif request.args.get('token'):
+            token = request.args.get('token')
+
+        if not token:
             return jsonify({'success': False, 'message': 'Thiếu token xác thực!'}), 401
-
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != 'bearer':
-            return jsonify({'success': False, 'message': 'Định dạng token không hợp lệ (Bearer <token>)'}), 401
-
-        token = parts[1]
         decoded = decode_token(token)
         if 'error' in decoded:
             return jsonify({'success': False, 'message': decoded['error']}), 401

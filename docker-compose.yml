@@ -43,6 +43,7 @@ services:
       FLASK_DEBUG: "false"
     volumes:
       - media_uploads:/app/uploads
+      - ./backup/archives:/app/backups
     ports:
       - "5000:5000"
     depends_on:
@@ -78,6 +79,10 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
+      - "8443:443"
+      - "443:443"
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - frontend
       - backend
@@ -98,6 +103,7 @@ services:
       - "9090:9090"
     depends_on:
       - backend
+      - cadvisor
     networks:
       - gallery_net
 
@@ -114,12 +120,63 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
       - "3001:3000"
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - gallery_net
+
+  # ============================================================================
+  # 7. Log Aggregator: Loki
+  # ============================================================================
+  loki:
+    image: grafana/loki:latest
+    container_name: gallery_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - gallery_net
+
+  # ============================================================================
+  # 8. Log Collector: Promtail
+  # ============================================================================
+  promtail:
+    image: grafana/promtail:latest
+    container_name: gallery_promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+    networks:
+      - gallery_net
+
+  # ============================================================================
+  # 9. Container Metrics Collector: cAdvisor
+  # ============================================================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: gallery_cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - "8081:8080"
     networks:
       - gallery_net
 
@@ -132,6 +189,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  loki_data:
     driver: local
 
 # Isolated Bridge Network

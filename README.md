@@ -13,8 +13,10 @@
 | **Backend / API** | **Python Flask** | RESTful API, xác thực JWT, phân quyền Role-based (Admin/User), xử lý ảnh & sinh thumbnail WebP (Pillow) |
 | **Cơ sở dữ liệu** | **PostgreSQL 16** | Bảng quan hệ: `users`, `photos`, `albums`, `tags`, `photo_tags`, `system_logs` |
 | **Máy chủ trung gian** | **Nginx** | Reverse Proxy điều hướng `/` sang Frontend, `/api/` sang Backend, bảo vệ Security Headers & cache |
-| **Triển khai** | **Docker + Docker Compose** | Đóng gói toàn bộ 6 dịch vụ độc lập, quản lý mạng bridge nội bộ và persistent volumes |
-| **Giám sát** | **Prometheus + Grafana** | Thu thập chỉ số thời gian thực (`/metrics`) và trực quan hóa Dashboard trực quan |
+| **Triển khai** | **Docker + Docker Compose** | Đóng gói toàn bộ 9 dịch vụ độc lập, quản lý mạng bridge nội bộ và persistent volumes |
+| **Giám sát chỉ số** | **Prometheus + Grafana** | Thu thập chỉ số thời gian thực (`/metrics`) và trực quan hóa Dashboard trực quan |
+| **Giám sát Container** | **cAdvisor** | Thu thập chỉ số tài nguyên phần cứng Container (CPU, Memory, Disk I/O, Network) thời gian thực |
+| **Quản lý nhật ký** | **Loki + Promtail** | Thu thập log container tự động từ Docker Daemon, lưu trữ và tra cứu LogQL tập trung trên Grafana |
 | **Quản lý mã nguồn** | **Git + GitHub** | Kiểm soát phiên bản mã nguồn chuẩn |
 
 ---
@@ -33,8 +35,15 @@ Hệ thống được thiết kế theo 2 giai đoạn mạch lạc:
 
 ### 🛡️ Giai Đoạn 2: Bảo Mật, Sao Lưu & Giám Sát Hệ Thống
 - [x] **Bảo mật:** Băm mật khẩu bằng `bcrypt`, bảo vệ API bằng JSON Web Token (JWT), kiểm duyệt loại tệp ảnh (MIME & Pillow verification), giới hạn dung lượng tải lên (30MB), cấu hình HTTP Security Headers trên Nginx.
-- [x] **Quản trị CSDL & Sao lưu (Backup & Restore):** Kịch bản tự động sao lưu cả CSDL (`pg_dump`) và thư mục ảnh vật lý (`backup.sh` / `backup.bat`), chính sách dọn dẹp sao lưu cũ hơn 7 ngày, kịch bản phục hồi khi gặp sự cố (`restore.sh` / `restore.bat`).
-- [x] **Giám sát hệ thống (Monitoring):** Tích hợp `prometheus_client` xuất metrics `/metrics` (đếm số request HTTP, đo độ trễ API, đo dung lượng lưu trữ trên đĩa, số lượng ảnh trong DB), cấu hình Prometheus Server và Grafana Dashboard tự động nạp (Auto-provisioning).
+- [x] **Quản trị CSDL & Sao lưu (Backup & Restore):** Kịch bản tự động sao lưu cả CSDL (`pg_dump`) và thư mục ảnh Docker volume (`backup.sh` / `backup.bat`), chính sách dọn dẹp sao lưu cũ hơn 7 ngày, kịch bản phục hồi khi gặp sự cố (`restore.sh` / `restore.bat`).
+- [x] **Giám sát hệ thống (Monitoring):** Tích hợp `prometheus_client` xuất metrics `/metrics` (đếm số request HTTP, đo độ trễ API, đo dung lượng lưu trữ trên đĩa, số lượng ảnh trong DB), cấu hình **cAdvisor** giám sát metrics container, cấu hình Prometheus Server và Grafana Dashboard tự động nạp (Auto-provisioning).
+
+### 🚀 Giai Đoạn 3: Nâng Cấp Nâng Cao & Tối Ưu Trải Nghiệm (Production Ready)
+- [x] **Quản lý Sao lưu Web 1 chạm:** Admin có thể tạo bản sao lưu, xem danh sách và tải trực tiếp tệp `.sql` và `.zip` ngay trên trình duyệt mà không cần mở terminal.
+- [x] **Tải trọn bộ Album (Bulk Download ZIP):** Nén toàn bộ ảnh trong một Album thành 1 tệp `.zip` duy nhất để tải về tức thì.
+- [x] **Thùng rác & Phục hồi (Soft Delete):** Xóa ảnh an toàn đưa vào Thùng rác, cho phép Khôi phục (Restore) hoặc Xóa vĩnh viễn (Permanent Delete).
+- [x] **Trích xuất thông số máy ảnh (EXIF Metadata):** Tự động đọc Model máy ảnh (Sony, Canon, iPhone...), Ống kính, Khẩu độ, Tốc độ màn trập, ISO, Tiêu cự và Ngày chụp gốc từ tệp ảnh.
+- [x] **Duyệt ảnh mượt mà bằng phím tắt:** Hỗ trợ phím Mũi tên Trái / Phải để chuyển ảnh kế tiếp trong Modal xem ảnh lớn, phím Escape để đóng nhanh.
 
 ---
 
@@ -49,11 +58,17 @@ Hệ thống được thiết kế theo 2 giai đoạn mạch lạc:
       ▼ (/)               ▼ (/api/)
 [ React Frontend :3000 ]  [ Flask Backend :5000 ] ◄──► [ PostgreSQL :5432 ]
                                  │
-                                 ▼ (/metrics)
-                          [ Prometheus :9090 ]
-                                 ▲
-                                 │
-                          [ Grafana :3001 ]
+                                 ├────────────────────────┐
+                                 ▼ (/metrics)             │
+                          [ Prometheus :9090 ]            ▼ (Docker Logs)
+                            ▲           ▲          [ Promtail Collector ]
+                            │           │                 │
+                            │           │                 ▼ (Log Push)
+         [ cAdvisor :8081 ] ┘           │           [ Loki :3100 ]
+         (Container Metrics)            │                 ▲
+                                        │                 │
+                                        └────► [ Grafana :3001 ] ◄────┘
+                                         (Dashboards & LogQL Explorer)
 ```
 
 ---
@@ -71,12 +86,15 @@ Sau khi các container khởi động hoàn tất (chỉ mất khoảng 1-2 phú
 
 | Dịch vụ | Địa chỉ truy cập IP | Ghi chú |
 | :--- | :--- | :--- |
-| **Ứng dụng PhotoVault (Nginx)** | `http://127.0.0.1:8080` (hoặc LAN: `http://192.168.1.104:8080`) | Cổng Nginx phân phối hệ thống |
+| **Ứng dụng PhotoVault (HTTP)** | `http://127.0.0.1:8080` (hoặc LAN: `http://192.168.1.104:8080`) | Cổng Nginx phân phối hệ thống qua HTTP |
+| **Ứng dụng PhotoVault (HTTPS)** | `https://127.0.0.1:8443` hoặc `https://127.0.0.1` | **Bảo mật SSL/TLS**, mã hóa HTTPS toàn diện |
 | **Giao diện Frontend (Dev)**| `http://127.0.0.1:3000` (hoặc LAN: `http://192.168.1.104:3000`) | Giao diện React + Vite UI |
 | **Backend REST API** | `http://127.0.0.1:5000/api/health` | Kiểm tra trạng thái API |
 | **Prometheus Raw Metrics** | `http://127.0.0.1:5000/metrics` | Chỉ số giám sát thời gian thực |
-| **Prometheus Server UI** | `http://127.0.0.1:9090` | Truy vấn PromQL |
-| **Grafana Dashboard** | `http://127.0.0.1:3001` | Đăng nhập: `admin` / `admin` |
+| **cAdvisor Container Monitor** | `http://127.0.0.1:8081` | Web UI & metrics cAdvisor |
+| **Prometheus Server UI** | `http://127.0.0.1:9090` | Truy vấn PromQL & kiểm tra Targets |
+| **Loki Log Gateway** | `http://127.0.0.1:3100/ready` | Kiểm tra trạng thái sẵn sàng của Loki |
+| **Grafana Dashboard & Logs** | `http://127.0.0.1:3001` | Đăng nhập: `admin` / `admin` (Xem biểu đồ & Nhật ký log) |
 
 ---
 
@@ -107,17 +125,26 @@ Xem chi tiết hướng dẫn thiết lập Cronjob tự động tại [backup/R
 
 ---
 
-## 7. Giám Sát Hiệu Năng Với Grafana & Prometheus
+## 7. Giám Sát Hiệu Năng & Nhật Ký Tập Trung Với Prometheus, Grafana, Loki & Promtail
 
 1. Mở trình duyệt vào `http://localhost:3001`
 2. Đăng nhập tài khoản Grafana: `admin` / mật khẩu `admin`
-3. Vào mục **Dashboards** -> Chọn **"Photo Gallery System Overview"**
-4. Các biểu đồ tự động hiển thị:
-   - Số người dùng trực tuyến
-   - Tổng dung lượng đĩa sử dụng cho ảnh (MB)
-   - Tần suất request HTTP / giây
-   - Độ trễ phản hồi của API (Latency Percentile p95)
-   - Lượt upload ảnh thành công / thất bại.
+3. Vào mục **Dashboards**:
+   - **"Photo Gallery System Overview"**: Xem tổng quan chỉ số CPU, RAM, dung lượng ảnh, tần suất request HTTP, độ trễ API và luồng log trực tiếp ở dưới cùng.
+   - **"Photo Gallery - Logs Explorer (Loki & Promtail)"**: Chuyên trang xem tần suất log theo từng service và tra cứu chi tiết toàn bộ log stream của hệ thống.
+4. **Tra cứu nhật ký bằng LogQL trong Grafana Explore:**
+   - Vào menu bên trái chọn **Explore** -> Chọn Data Source là **Loki**.
+   - Một số câu truy vấn LogQL mẫu:
+     ```logql
+     # Xem log của riêng backend:
+     {service="backend"}
+
+     # Xem log của gateway nginx:
+     {service="gateway"}
+
+     # Tìm kiếm lỗi trong tất cả các container:
+     {container=~"gallery_.*"} |= "ERROR"
+     ```
 
 ---
 

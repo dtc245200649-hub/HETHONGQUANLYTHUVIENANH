@@ -15,10 +15,43 @@ export function App() {
   const { user, isAdmin } = useAuth();
   const [currentTab, setCurrentTab] = useState('gallery'); // gallery, albums, my-photos, admin, favorites
   const [selectedPhotoId, setSelectedPhotoId] = useState(null);
+  const [photoList, setPhotoList] = useState([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [authModal, setAuthModal] = useState({ isOpen: false, tab: 'login' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const triggerRefresh = () => {
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleSelectPhoto = (id, list = []) => {
+    setSelectedPhotoId(id);
+    if (list && list.length > 0) {
+      setPhotoList(list);
+    }
+  };
+
+  const currentPhotoIndex = photoList.findIndex(
+    (p) => (p?.id !== undefined ? p.id === selectedPhotoId : p === selectedPhotoId)
+  );
+  const hasPrev = currentPhotoIndex > 0;
+  const hasNext = currentPhotoIndex !== -1 && currentPhotoIndex < photoList.length - 1;
+
+  const handlePrevPhoto = () => {
+    if (hasPrev) {
+      const prev = photoList[currentPhotoIndex - 1];
+      setSelectedPhotoId(prev?.id !== undefined ? prev.id : prev);
+    }
+  };
+
+  const handleNextPhoto = () => {
+    if (hasNext) {
+      const next = photoList[currentPhotoIndex + 1];
+      setSelectedPhotoId(next?.id !== undefined ? next.id : next);
+    }
+  };
 
   const handleOpenAuth = (tab = 'login') => {
     setAuthModal({ isOpen: true, tab });
@@ -59,27 +92,33 @@ export function App() {
         <main className="content-wrapper">
           {currentTab === 'gallery' && (
             <GalleryPage 
-              onSelectPhoto={(id) => setSelectedPhotoId(id)} 
+              onSelectPhoto={handleSelectPhoto} 
               searchQuery={searchQuery}
+              refreshTrigger={refreshKey}
             />
           )}
 
           {currentTab === 'albums' && (
-            <AlbumsPage onSelectPhoto={(id) => setSelectedPhotoId(id)} />
+            <AlbumsPage 
+              onSelectPhoto={handleSelectPhoto} 
+              refreshTrigger={refreshKey}
+            />
           )}
 
           {currentTab === 'favorites' && (
             <MyPhotosPage
-              onSelectPhoto={(id) => setSelectedPhotoId(id)}
+              onSelectPhoto={handleSelectPhoto}
               onOpenUpload={() => setUploadModalOpen(true)}
               defaultFilter="favorite"
+              refreshTrigger={refreshKey}
             />
           )}
 
           {currentTab === 'my-photos' && (
             <MyPhotosPage
-              onSelectPhoto={(id) => setSelectedPhotoId(id)}
+              onSelectPhoto={handleSelectPhoto}
               onOpenUpload={() => setUploadModalOpen(true)}
+              refreshTrigger={refreshKey}
             />
           )}
 
@@ -106,12 +145,17 @@ export function App() {
       <PhotoModal
         photoId={selectedPhotoId}
         onClose={() => setSelectedPhotoId(null)}
+        onPhotoUpdated={triggerRefresh}
+        onPhotoDeleted={triggerRefresh}
+        onPrev={hasPrev ? handlePrevPhoto : null}
+        onNext={hasNext ? handleNextPhoto : null}
       />
 
       {/* Drag & Drop Upload Modal */}
       <UploadModal
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
+        onUploadSuccess={triggerRefresh}
       />
 
       {/* Pixels Split-Screen Login & Register Modal */}

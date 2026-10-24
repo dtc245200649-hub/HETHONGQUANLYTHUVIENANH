@@ -5,12 +5,20 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-export const PhotoCard = ({ photo, onClick, onFavoriteToggle }) => {
+export const PhotoCard = ({ photo, sortBy, onClick, onFavoriteToggle }) => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const [isFavorite, setIsFavorite] = useState(photo.is_favorite);
   const [favLoading, setFavLoading] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   const handleFavorite = async (e) => {
     e.stopPropagation();
@@ -105,27 +113,87 @@ export const PhotoCard = ({ photo, onClick, onFavoriteToggle }) => {
           }} />
         )}
 
-        {/* Privacy Pill */}
-        {!photo.is_public && (
-          <div style={{
-            position: 'absolute',
-            top: '12px',
-            left: '12px',
-            zIndex: 10,
-            background: 'rgba(15, 23, 42, 0.85)',
-            backdropFilter: 'blur(8px)',
-            color: 'var(--accent-amber)',
-            padding: '4px 8px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.72rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            border: '1px solid rgba(245, 158, 11, 0.3)'
-          }}>
-            <Lock size={12} /> Riêng tư
-          </div>
-        )}
+        {/* Privacy Pill & Active Sort Metric Badge */}
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          left: '12px',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px'
+        }}>
+          {!photo.is_public && (
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(8px)',
+              color: 'var(--accent-amber)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.72rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              border: '1px solid rgba(245, 158, 11, 0.3)'
+            }}>
+              <Lock size={12} /> Riêng tư
+            </div>
+          )}
+
+          {sortBy === 'popular' && (
+            <div style={{
+              background: 'rgba(99, 102, 241, 0.85)',
+              backdropFilter: 'blur(8px)',
+              color: '#ffffff',
+              padding: '4px 9px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            }}>
+              <Eye size={12} /> {photo.views_count || 0} lượt xem
+            </div>
+          )}
+
+          {sortBy === 'downloads' && (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.85)',
+              backdropFilter: 'blur(8px)',
+              color: '#ffffff',
+              padding: '4px 9px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            }}>
+              <Download size={12} /> {photo.downloads_count || 0} lượt tải
+            </div>
+          )}
+
+          {sortBy === 'size' && (
+            <div style={{
+              background: 'rgba(168, 85, 247, 0.85)',
+              backdropFilter: 'blur(8px)',
+              color: '#ffffff',
+              padding: '4px 9px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            }}>
+              💾 {formatFileSize(photo.file_size)}
+            </div>
+          )}
+        </div>
 
         {/* Top Right Quick Actions */}
         <div style={{
@@ -206,10 +274,13 @@ export const PhotoCard = ({ photo, onClick, onFavoriteToggle }) => {
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                <Eye size={14} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-dim)' }} title="Lượt xem">
+                <Eye size={13} />
                 <span>{photo.views_count || 0}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-dim)' }} title="Dung lượng">
+                <span>{formatFileSize(photo.file_size)}</span>
               </div>
               <button
                 onClick={handleDownload}

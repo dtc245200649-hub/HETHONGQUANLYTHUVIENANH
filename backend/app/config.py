@@ -18,11 +18,13 @@ class Config:
     
     DATABASE_URL = os.getenv('DATABASE_URL')
     if DATABASE_URL:
+        if DATABASE_URL.startswith("postgresql://"):
+            DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
         SQLALCHEMY_DATABASE_URI = DATABASE_URL
     elif os.getenv('USE_SQLITE', 'false').lower() == 'true':
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(BASE_DIR, 'gallery.db')}"
     else:
-        SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

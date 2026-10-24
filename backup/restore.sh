@@ -1,43 +1,39 @@
 #!/bin/bash
 # ==============================================================================
-# Photo Gallery Restore Script
-# Usage: ./restore.sh <path_to_db_sql_or_gz> <optional_path_to_media_tar_gz>
+# PhotoVault Linux/macOS Restore Script
+# Usage: ./restore.sh <path_to_db_sql_gz> [path_to_media_tar_gz]
 # ==============================================================================
 
 set -e
 
-DB_BACKUP=$1
-MEDIA_BACKUP=$2
-
-DB_USER=${POSTGRES_USER:-"gallery_user"}
-DB_NAME=${POSTGRES_DB:-"gallery_db"}
-
-if [ -z "$DB_BACKUP" ]; then
-    echo "Usage: $0 <path_to_db_backup.sql[.gz]> [path_to_media_backup.tar.gz]"
+if [ -z "$1" ]; then
+    echo "Usage: ./restore.sh <path_to_db_backup.sql.gz> [path_to_media_backup.tar.gz]"
     exit 1
 fi
 
+DB_FILE="$1"
+MEDIA_FILE="$2"
+DB_USER=${POSTGRES_USER:-"gallery_user"}
+DB_NAME=${POSTGRES_DB:-"gallery_db"}
+
 echo "=========================================="
-echo " Starting System Restore"
-echo " Database File: $DB_BACKUP"
+echo " Starting PhotoVault Restore"
 echo "=========================================="
 
-# 1. Restore Database
-echo "[1/2] Restoring PostgreSQL database..."
-if [[ "$DB_BACKUP" == *.gz ]]; then
-    gunzip -c "$DB_BACKUP" | docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME"
+echo "[1] Restoring database from $DB_FILE..."
+if [[ "$DB_FILE" == *.gz ]]; then
+    gunzip -c "$DB_FILE" | docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME"
 else
-    cat "$DB_BACKUP" | docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME"
+    cat "$DB_FILE" | docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME"
 fi
-echo "✓ Database restored successfully!"
+echo "✓ Database restore completed."
 
-# 2. Restore Media Files (if provided)
-if [ -n "$MEDIA_BACKUP" ] && [ -f "$MEDIA_BACKUP" ]; then
-    echo "[2/2] Restoring media files..."
-    tar -xzf "$MEDIA_BACKUP" -C "./backend"
-    echo "✓ Media files restored successfully!"
+if [ -n "$MEDIA_FILE" ] && [ -f "$MEDIA_FILE" ]; then
+    echo "[2] Restoring media files into container from $MEDIA_FILE..."
+    cat "$MEDIA_FILE" | docker compose exec -T backend tar -xzf - -C /app
+    echo "✓ Media restore completed."
 fi
 
 echo "=========================================="
-echo " System Restore Completed Successfully!"
+echo " Restore Completed Successfully!"
 echo "=========================================="

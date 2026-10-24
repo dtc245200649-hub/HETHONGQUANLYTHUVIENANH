@@ -139,21 +139,26 @@ export const TopBar = ({
             </button>
 
             {dropdownOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '125%',
-                  right: 0,
-                  width: '220px',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-lg)',
-                  padding: '8px',
-                  zIndex: 200,
-                  animation: 'scaleIn 0.15s ease'
-                }}
-              >
+              <>
+                <div 
+                  onClick={() => setDropdownOpen(false)}
+                  style={{ position: 'fixed', inset: 0, zIndex: 190 }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '125%',
+                    right: 0,
+                    width: '220px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: '8px',
+                    zIndex: 200,
+                    animation: 'scaleIn 0.15s ease'
+                  }}
+                >
                 <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '6px' }}>
                   <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)' }}>{user.full_name || user.username}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>@{user.username} • {user.role}</div>
@@ -193,7 +198,8 @@ export const TopBar = ({
                   <LogOut size={16} /> Đăng xuất
                 </button>
               </div>
-            )}
+            </>
+          )}
           </div>
         )}
       </div>

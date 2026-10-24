@@ -1,7 +1,12 @@
-from flask import Blueprint, request, jsonify
+import io
+import os
+import zipfile
+import re
+from flask import Blueprint, request, jsonify, current_app, send_file
 from sqlalchemy import or_
 from ..models import db, Album, Photo
 from ..utils.auth_middleware import token_required, optional_token, log_activity
+from ..utils.metrics_tracker import PHOTO_DOWNLOADS_TOTAL
 
 albums_bp = Blueprint('albums', __name__, url_prefix='/api/albums')
 
@@ -16,10 +21,12 @@ def list_albums(current_user):
     else:
         query = query.filter(Album.is_public == True)
 
-    albums = query.order_by(Album.created_at.desc()).all()
+    albums = query.all()
+    album_dicts = [a.to_dict() for a in albums]
+    album_dicts.sort(key=lambda x: x.get('photos_count', 0), reverse=True)
     return jsonify({
         'success': True,
-        'albums': [a.to_dict() for a in albums]
+        'albums': album_dicts
     }), 200
 
 @albums_bp.route('', methods=['POST'])
@@ -130,3 +137,54 @@ def delete_album(current_user, album_id):
         'success': True,
         'message': 'Đã xóa album thành công'
     }), 200
+
+@albums_bp.route('/<int:album_id>/download', methods=['GET'])
+@optional_token
+def download_album(current_user, album_id):
+    album = db.session.get(Album, album_id)
+    if not album:
+        return jsonify({'success': False, 'message': 'Không tìm thấy album'}), 404
+
+    # Permission check for private album
+    if not album.is_public:
+        if not current_user or (current_user.id != album.user_id and current_user.role != 'admin'):
+            return jsonify({'success': False, 'message': 'Album này ở chế độ riêng tư'}), 403
+
+    photos_query = album.photos.filter(or_(Photo.is_deleted == False, Photo.is_deleted == None))
+    if not (current_user and (current_user.id == album.user_id or current_user.role == 'admin')):
+        photos_query = photos_query.filter(Photo.is_public == True)
+
+    photos = photos_query.all()
+    if not photos:
+        return jsonify({'success': False, 'message': 'Album hiện chưa có hình ảnh nào để tải về'}), 400
+
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    mem_zip = io.BytesIO()
+
+    with zipfile.ZipFile(mem_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+        used_filenames = set()
+        for idx, p in enumerate(photos):
+            file_path = os.path.join(upload_folder, p.filename)
+            if os.path.exists(file_path):
+                # Sanitize photo title
+                safe_title = re.sub(r'[\\/*?:"<>|]', "", p.title).strip() or f"photo_{p.id}"
+                ext = p.filename.rsplit('.', 1)[1].lower() if '.' in p.filename else 'jpg'
+                arc_name = f"{safe_title}.{ext}"
+                if arc_name in used_filenames:
+                    arc_name = f"{safe_title}_{idx + 1}.{ext}"
+                used_filenames.add(arc_name)
+
+                zf.write(file_path, arcname=arc_name)
+                p.downloads_count = (p.downloads_count or 0) + 1
+                PHOTO_DOWNLOADS_TOTAL.inc()
+
+    db.session.commit()
+    mem_zip.seek(0)
+
+    safe_album_name = re.sub(r'[\\/*?:"<>|]', "", album.name).strip() or f"album_{album.id}"
+    return send_file(
+        mem_zip,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f"{safe_album_name}.zip"
+    )
